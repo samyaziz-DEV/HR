@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>نظام الحضور والانصراف</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --bg:#0b0b0d; --card:#17171c; --card2:#1e1e25;
+      --gold:#d4af37; --gold2:#f3d77a; --gold3:#8a6d1c;
+      --txt:#ecebe6; --mut:#9a9aa6; --bd:#2a2a33;
+      --ok:#2ecc8f; --bad:#ff5c5c; --shadow:0 10px 30px rgba(0,0,0,.45);
+    }
+    * { box-sizing:border-box }
+    body {
+      margin:0; min-height:100vh; color:var(--txt); font:15px Tahoma,"Segoe UI",Arial,sans-serif;
+      background:radial-gradient(1200px 600px at 80% -10%,#221c0a 0%,var(--bg) 55%);
+    }
+    header {
+      position:sticky; top:0; z-index:1000; display:flex; justify-content:space-between;
+      align-items:center; padding:14px 18px; border-bottom:1px solid var(--gold3);
+      background:linear-gradient(90deg,#0b0b0d,#1b1608 50%,#0b0b0d); box-shadow:var(--shadow);
+    }
+    header h1 { margin:0; font-size:17px; color:var(--gold2) }
+    main { max-width:1100px; margin:auto; padding:16px }
+    .card {
+      position:relative; margin-bottom:16px; padding:16px; border:1px solid var(--bd);
+      border-radius:16px; background:linear-gradient(160deg,var(--card),var(--card2)); box-shadow:var(--shadow);
+    }
+    .card:before {
+      content:""; position:absolute; top:0; right:16px; left:16px; height:2px;
+      background:linear-gradient(90deg,transparent,var(--gold),transparent);
+    }
+    .card h2 { margin:0 0 12px; color:var(--gold2); font-size:16px }
+    input,select {
+      width:100%; margin-top:5px; padding:10px 12px; border:1px solid var(--bd);
+      border-radius:10px; background:#0f0f13; color:var(--txt); font:inherit;
+    }
+    input:focus,select:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px #d4af3726 }
+    label { display:block; margin-bottom:8px; color:var(--mut); font-size:12px }
+    button {
+      padding:10px 16px; border:0; border-radius:10px; cursor:pointer; font:inherit;
+      font-weight:700; color:#1a1403; background:linear-gradient(135deg,var(--gold2),var(--gold) 55%,var(--gold3));
+      box-shadow:0 4px 14px #d4af3740;
+    }
+    button:hover { filter:brightness(1.08) }
+    button:disabled { cursor:not-allowed; color:#777; background:#2a2a31; box-shadow:none }
+    button.sec { color:var(--txt); background:#26262e; border:1px solid var(--bd); box-shadow:none; font-weight:400 }
+    button.red { color:white; background:linear-gradient(135deg,#ff7b7b,#d63a3a); box-shadow:none }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px }
+    .tabs { display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:4px }
+    .tabs button { white-space:nowrap; color:var(--mut); background:#1b1b22; border:1px solid var(--bd); box-shadow:none; font-weight:400 }
+    .tabs button.on { color:#1a1403; background:linear-gradient(135deg,var(--gold2),var(--gold)); font-weight:700 }
+    .tw { overflow-x:auto }
+    table { width:100%; border-collapse:collapse; font-size:13px }
+    th,td { padding:10px 8px; border-bottom:1px solid var(--bd); text-align:center; white-space:nowrap }
+    th { color:var(--gold); background:#111115 }
+    .big { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px }
+    .big button { padding:22px; border-radius:14px; font-size:19px }
+    .big .in { color:#04281b; background:linear-gradient(135deg,#5dffbb,var(--ok) 55%,#15845a) }
+    .big .out { color:#2b0505; background:linear-gradient(135deg,#ff9a9a,var(--bad) 55%,#b92b2b) }
+    .st { margin-bottom:10px; padding:12px 14px; border:1px solid; border-radius:12px; font-size:14px }
+    .st.ok { color:#7ff0c1; background:#2ecc8f14; border-color:#2ecc8f66 }
+    .st.no { color:#ff9d9d; background:#ff5c5c14; border-color:#ff5c5c66 }
+    .st.wt { color:var(--gold2); background:#d4af3714; border-color:#d4af3766 }
+    .kpi { padding:12px; border:1px solid var(--bd); border-radius:12px; background:#101014; text-align:center; color:var(--mut); font-size:12px }
+    .kpi b { display:block; margin-top:5px; color:var(--txt); font-size:19px }
+    .kpi.net { border-color:var(--gold); background:linear-gradient(160deg,#1f1a0a,#101014) }
+    .kpi.net b { color:var(--gold2); font-size:22px }
+    .neg { color:var(--bad)!important } .pos { color:var(--ok)!important }
+    .login { max-width:390px; margin:9vh auto }
+    .login h2 { text-align:center; font-size:20px }
+    .logo { width:64px; height:64px; margin:0 auto 10px; border-radius:50%; display:grid; place-items:center; font-size:30px; background:linear-gradient(135deg,var(--gold2),var(--gold3)) }
+    .note { color:var(--mut); font-size:12px; line-height:1.7 }
+    .warn { margin-bottom:12px; padding:10px 12px; border:1px solid #d4af3759; border-radius:10px; color:var(--gold2); background:#d4af3714; font-size:13px }
+    .map { height:340px; margin-top:10px; overflow:hidden; border:1px solid var(--gold3); border-radius:14px }
+    .pill { display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px }
+    .pill.ok { color:var(--ok); background:#2ecc8f26 }
+    .pill.no { color:var(--bad); background:#ff5c5c26 }
+    .leaflet-container { font-family:Tahoma,Arial,sans-serif }
+    @media(max-width:520px) { .big { grid-template-columns:1fr 1fr } header h1 { font-size:14px } }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+    const uid = () => Math.random().toString(36).slice(2, 9);
+    const pad = n => String(n).padStart(2, "0");
+    const dKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const fmtT = iso => iso ? new Date(iso).toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"}) : "—";
+    const r2 = n => Math.round((Number(n)||0)*100)/100;
+    const money = n => r2(n).toLocaleString("en-US") + " ج";
+
+    function seed() {
+      return {
+        users:[
+          {id:"u1",name:"المدير العام",username:"admin",password:"admin123",role:"admin",salary:0,start:"09:00",hours:8,locId:""},
+          {id:"u2",name:"أحمد محمد",username:"ahmed",password:"1234",role:"emp",salary:6000,start:"09:00",hours:8,locId:"l1"},
+          {id:"u3",name:"سارة علي",username:"sara",password:"1234",role:"emp",salary:7500,start:"08:30",hours:8,locId:"l1"}
+        ],
+        locations:[{id:"l1",name:"استاد بنها - القليوبية",lat:30.4616,lng:31.1795,radius:300}],
+        att:[], adj:[],
+        settings:{otMult:1.5,offDays:[5],simulate:false}
+      };
+    }
+
+    let DB;
+    try { DB = JSON.parse(localStorage.getItem("hr_db2")) || seed(); }
+    catch { DB = seed(); }
+    const save = () => localStorage.setItem("hr_db2", JSON.stringify(DB));
+    save();
+
+    let ME = null;
+    try { ME = JSON.parse(sessionStorage.getItem("hr_me2") || "null"); } catch {}
+    let TAB="map", MONTH=dKey(new Date()).slice(0,7), POS=null, WATCH=null, MAP=null, PICK=null;
+
+    function distM(a,b,c,d) {
+      const R=6371000, t=x=>x*Math.PI/180;
+      const dl=t(c-a), dn=t(d-b);
+      const h=Math.sin(dl/2)**2 + Math.cos(t(a))*Math.cos(t(c))*Math.sin(dn/2)**2;
+      return 2*R*Math.asin(Math.sqrt(h));
+    }
+    function monthDays(m) {
+      const [y,mo]=m.split("-").map(Number), n=new Date(y,mo,0).getDate();
+      return Array.from({length:n},(_,i)=>new Date(y,mo-1,i+1));
+    }
+
+    function calc(u,m) {
+      const days=monthDays(m), off=DB.settings.offDays||[], today=dKey(new Date());
+      const work=days.filter(d=>!off.includes(d.getDay()));
+      const dayRate=u.salary/(work.length||1), hr=dayRate/(u.hours||8);
+      let present=0,absent=0,worked=0,shortage=0,ot=0,late=0,missing=0;
+      const rows=[];
+      for(const d of work) {
+        const k=dKey(d);
+        if(k>today) break;
+        const rec=DB.att.find(a=>a.uid===u.id&&a.date===k);
+        if(!rec) { if(k<today) { absent++; rows.push({k,abs:true}); } continue; }
+        present++;
+        const [sh,sm]=u.start.split(":").map(Number);
+        const st=new Date(rec.in), shift=new Date(d.getFullYear(),d.getMonth(),d.getDate(),sh,sm);
+        const l=Math.max(0,Math.round((st-shift)/60000)); late+=l;
+        let w=0,s=0,o=0;
+        if(rec.out) { w=Math.max(0,(new Date(rec.out)-st)/3600000); s=Math.max(0,u.hours-w); o=Math.max(0,w-u.hours); }
+        else if(k<today) missing++;
+        worked+=w; shortage+=s; ot+=o; rows.push({k,rec,w,s,o,l});
+      }
+      const adj=DB.adj.filter(a=>a.uid===u.id&&a.month===m);
+      const manDed=adj.filter(a=>a.type==="ded").reduce((x,a)=>x+a.amount,0);
+      const bonus=adj.filter(a=>a.type==="bonus").reduce((x,a)=>x+a.amount,0);
+      const shortDed=shortage*hr, absDed=absent*dayRate, otPay=ot*hr*(DB.settings.otMult||1);
+      const net=u.salary-shortDed-absDed-manDed+otPay+bonus;
+      return {present,absent,worked,shortage,ot,late,missing,shortDed,absDed,otPay,manDed,bonus,net,rows,hr,dayRate};
+    }
+
+    function stopWatch() {
+      if(WATCH!==null && navigator.geolocation) navigator.geolocation.clearWatch(WATCH);
+      WATCH=null;
+    }
+    function render() {
+      if(MAP) { MAP.remove(); MAP=null; PICK=null; }
+      if(!ME) { stopWatch(); $("#app").innerHTML=loginView(); return; }
+      const u=DB.users.find(x=>x.id===ME.id);
+      if(!u) { logout(); return; }
+      if(u.role==="emp") startWatch(u); else stopWatch();
+      $("#app").innerHTML=`<header><h1>✦ نظام الحضور — ${esc(u.name)}</h1><button class="sec" onclick="logout()">خروج</button></header>
+        <main>${u.role==="admin"?adminView():empView(u)}</main>`;
+      if(u.role==="admin") {
+        if(TAB==="map") drawPunchMap();
+        if(TAB==="locs") drawPickMap();
+      } else updStatus(u);
+    }
+    function loginView() {
+      return `<div class="login card"><div class="logo">🕒</div><h2>تسجيل الدخول</h2>
+        <label>اسم المستخدم<input id="lu" autocomplete="username"></label>
+        <label>كلمة السر<input id="lp" type="password" onkeydown="if(event.key==='Enter')login()"></label>
+        <button style="width:100%" onclick="login()">دخول</button>
+        <p class="note">حسابات التجربة: admin / admin123 — ahmed / 1234 — sara / 1234</p></div>`;
+    }
+    function login() {
+      const u=DB.users.find(x=>x.username===$("#lu").value.trim()&&x.password===$("#lp").value);
+      if(!u) return alert("اسم المستخدم أو كلمة السر غير صحيحة");
+      ME={id:u.id}; sessionStorage.setItem("hr_me2",JSON.stringify(ME)); TAB="map"; render();
+    }
+    function logout() { ME=null; sessionStorage.removeItem("hr_me2"); render(); }
+    function monthPick() {
+      return `<label>الشهر<input type="month" value="${MONTH}" onchange="MONTH=this.value;render()"></label>`;
+    }
+
+    function startWatch(u) {
+      stopWatch();
+      POS=null;
+      updStatus(u);
+      if(!navigator.geolocation) {
+        POS={err:"المتصفح لا يدعم تحديد الموقع"};
+        updStatus(u); return;
+      }
+      WATCH=navigator.geolocation.watchPosition(
+        p=>{
+          POS={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};
+          updStatus(u);
+        },
+        e=>{
+          POS={err:e.code===1
+            ?"تم رفض إذن الموقع. اسمح للموقع باستخدام موقعك من إعدادات المتصفح."
+            :"تعذّر تحديد الموقع. تأكد من تفعيل GPS والإنترنت."};
+          updStatus(u);
+        },
+        {enableHighAccuracy:true,maximumAge:3000,timeout:20000}
+      );
+    }
+    function inside(u) {
+      const loc=DB.locations.find(l=>l.id===u.locId);
+      if(!loc) return {ok:false,msg:"لم يتم تحديد موقع عمل لك. تواصل مع المدير."};
+      if(!POS) return {ok:false,wait:true,msg:"جاري تحديد موقعك الحقيقي من الجهاز…"};
+      if(POS.err) return {ok:false,msg:POS.err};
+      const d=distM(POS.lat,POS.lng,loc.lat,loc.lng);
+      const acc=POS.acc>50?` — دقة GPS الحالية ±${Math.round(POS.acc)}م`:"";
+      return d<=loc.radius
+        ?{ok:true,d,msg:`أنت داخل نطاق ${esc(loc.name)} — المسافة ${Math.round(d)}م${acc}`}
+        :{ok:false,d,msg:`أنت خارج نطاق ${esc(loc.name)} — المسافة ${Math.round(d)}م، والمسموح ${loc.radius}م${acc}`};
+    }
+    function updStatus(u) {
+      const box=$("#locst");
+      if(!box) return;
+      const s=inside(u), today=DB.att.find(a=>a.uid===u.id&&a.date===dKey(new Date()));
+      box.className="st "+(s.ok?"ok":s.wait?"wt":"no");
+      box.textContent=s.msg;
+      const bi=$("#bin"), bo=$("#bout");
+      if(bi) bi.disabled=!(s.ok&&!today);
+      if(bo) bo.disabled=!(s.ok&&today&&!today.out);
+    }
+    function empView(u) {
+      const t=DB.att.find(a=>a.uid===u.id&&a.date===dKey(new Date()));
+      const c=calc(u,MONTH);
+      return `<div class="card"><h2>تسجيل اليوم — ${new Date().toLocaleDateString("ar-EG",{weekday:"long",day:"numeric",month:"long"})}</h2>
+        <div id="locst" class="st wt">جاري تحديد موقعك الحقيقي…</div>
+        <div class="grid">
+          <div class="kpi">حضور<b>${fmtT(t?.in)}</b></div><div class="kpi">انصراف<b>${fmtT(t?.out)}</b></div>
+          <div class="kpi">بداية الدوام<b>${esc(u.start)}</b></div><div class="kpi">ساعات مطلوبة<b>${u.hours}</b></div>
+        </div>
+        <div class="big"><button id="bin" class="in" disabled onclick="punch('in')">تسجيل حضور</button>
+          <button id="bout" class="out" disabled onclick="punch('out')">تسجيل انصراف</button></div>
+        <p class="note">يتم أخذ موقع الجهاز عند البصمة والتحقق من وجودك داخل نطاق موقع العمل.</p></div>
+        <div class="card"><h2>الكشف الشهري</h2>${monthPick()}${summary(u,c)}${detailTable(c)}</div>`;
+    }
+    function punch(type) {
+      const u=DB.users.find(x=>x.id===ME.id), s=inside(u);
+      if(!s.ok) return alert(s.msg);
+      const k=dKey(new Date()); let rec=DB.att.find(a=>a.uid===u.id&&a.date===k);
+      const now=new Date().toISOString();
+      const p={lat:POS.lat,lng:POS.lng,acc:Math.round(POS.acc||0),dist:Math.round(s.d)};
+      if(type==="in") {
+        if(rec) return alert("تم تسجيل الحضور اليوم بالفعل");
+        DB.att.push({id:uid(),uid:u.id,date:k,in:now,out:null,inLoc:p});
+      } else {
+        if(!rec||rec.out) return alert("لا يوجد حضور مفتوح لتسجيل الانصراف");
+        rec.out=now; rec.outLoc=p;
+      }
+      save(); render();
+    }
+    function summary(u,c) {
+      return `<div class="grid" style="margin:12px 0">
+        <div class="kpi">أيام حضور<b>${c.present}</b></div><div class="kpi">أيام غياب<b class="${c.absent?"neg":""}">${c.absent}</b></div>
+        <div class="kpi">ساعات عمل<b>${r2(c.worked)}</b></div><div class="kpi">العجز (ساعة)<b class="${c.shortage?"neg":""}">${r2(c.shortage)}</b></div>
+        <div class="kpi">إضافي (ساعة)<b class="pos">${r2(c.ot)}</b></div><div class="kpi">دقائق تأخير<b>${c.late}</b></div>
+        <div class="kpi">الراتب الأساسي<b>${money(u.salary)}</b></div><div class="kpi">خصم العجز<b class="neg">${money(c.shortDed)}</b></div>
+        <div class="kpi">خصم الغياب<b class="neg">${money(c.absDed)}</b></div><div class="kpi">خصومات أخرى<b class="neg">${money(c.manDed)}</b></div>
+        <div class="kpi">إضافي + مكافآت<b class="pos">${money(c.otPay+c.bonus)}</b></div><div class="kpi net">صافي الراتب<b>${money(c.net)}</b></div>
+      </div>${c.missing?`<p class="note">⚠️ ${c.missing} يوم بدون تسجيل انصراف؛ لم يُحسب عليها عجز.</p>`:""}`;
+    }
+    function detailTable(c) {
+      if(!c.rows.length) return '<p class="note">لا توجد سجلات.</p>';
+      return `<div class="tw"><table><tr><th>التاريخ</th><th>حضور</th><th>انصراف</th><th>ساعات</th><th>عجز</th><th>إضافي</th><th>تأخير د</th></tr>
+        ${c.rows.map(r=>r.abs?`<tr><td>${r.k}</td><td colspan="6" class="neg">غياب</td></tr>`:
+        `<tr><td>${r.k}</td><td>${fmtT(r.rec.in)}</td><td>${r.rec.out?fmtT(r.rec.out):'<span class="neg">لم ينصرف</span>'}</td>
+        <td>${r2(r.w)}</td><td class="${r.s?"neg":""}">${r2(r.s)}</td><td class="${r.o?"pos":""}">${r2(r.o)}</td><td>${r.l}</td></tr>`).join("")}</table></div>`;
+    }
+
+    function adminView() {
+      const T={map:"الخريطة والبصمات",emps:"الموظفون",locs:"المواقع",att:"الحضور",rep:"التقرير والرواتب",adj:"خصومات ومكافآت"};
+      const pages={map:mapTab,emps:empsTab,locs:locsTab,att:attTab,rep:repTab,adj:adjTab};
+      return `<div class="tabs">${Object.entries(T).map(([k,v])=>`<button class="${TAB===k?"on":""}" onclick="TAB='${k}';render()">${v}</button>`).join("")}</div>${(pages[TAB]||mapTab)()}`;
+    }
+    const gIcon=c=>L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${c};border:3px solid #111"></div>`,iconSize:[18,18],iconAnchor:[9,9]});
+    function mapTab() {
+      const today=dKey(new Date()), recs=DB.att.filter(a=>a.date===today);
+      const nm=id=>esc(DB.users.find(u=>u.id===id)?.name||"—");
+      return `<div class="card"><h2>أماكن البصمات — اليوم</h2>
+        <p class="note">الدوائر الذهبية: مواقع العمل. النقطة الخضراء: حضور. النقطة الحمراء: انصراف.</p><div id="map" class="map"></div></div>
+        <div class="card"><h2>سجل البصمات اليوم</h2><div class="tw"><table>
+        <tr><th>الموظف</th><th>حضور</th><th>مكان الحضور</th><th>انصراف</th><th>مكان الانصراف</th><th>نوع السجل</th></tr>
+        ${recs.map(r=>`<tr><td>${nm(r.uid)}</td><td>${fmtT(r.in)}</td>
+        <td>${r.inLoc?`<a target="_blank" rel="noopener" style="color:var(--gold2)" href="https://www.google.com/maps?q=${r.inLoc.lat},${r.inLoc.lng}">فتح الخريطة (${r.inLoc.dist}م)</a>`:"—"}</td>
+        <td>${fmtT(r.out)}</td><td>${r.outLoc?`<a target="_blank" rel="noopener" style="color:var(--gold2)" href="https://www.google.com/maps?q=${r.outLoc.lat},${r.outLoc.lng}">فتح الخريطة (${r.outLoc.dist}م)</a>`:"—"}</td>
+        <td>${r.manual?'<span class="pill no">يدوي</span>':'<span class="pill ok">موقع الجهاز</span>'}</td></tr>`).join("")||'<tr><td colspan="6">لا توجد بصمات اليوم</td></tr>'}
+        </table></div></div>`;
+    }
+    function drawPunchMap() {
+      const el=$("#map"); if(!el||!window.L) return;
+      const first=DB.locations[0], center=first?[first.lat,first.lng]:[30.0444,31.2357];
+      MAP=L.map("map").setView(center, first?14:6);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(MAP);
+      const pts=[];
+      DB.locations.forEach(l=>{
+        L.circle([l.lat,l.lng],{radius:l.radius,color:"#d4af37",fillColor:"#d4af37",fillOpacity:.12}).addTo(MAP).bindPopup(esc(l.name));
+        pts.push([l.lat,l.lng]);
+      });
+      const today=dKey(new Date());
+      DB.att.filter(a=>a.date===today).forEach(r=>{
+        const n=esc(DB.users.find(u=>u.id===r.uid)?.name||"");
+        if(r.inLoc) { L.marker([r.inLoc.lat,r.inLoc.lng],{icon:gIcon("#2ecc8f")}).addTo(MAP).bindPopup(`${n}<br>حضور ${fmtT(r.in)}`); pts.push([r.inLoc.lat,r.inLoc.lng]); }
+        if(r.outLoc) { L.marker([r.outLoc.lat,r.outLoc.lng],{icon:gIcon("#ff5c5c")}).addTo(MAP).bindPopup(`${n}<br>انصراف ${fmtT(r.out)}`); pts.push([r.outLoc.lat,r.outLoc.lng]); }
+      });
+      if(pts.length>1) MAP.fitBounds(pts,{padding:[40,40],maxZoom:17});
+    }
+
+    function empsTab() {
+      const emps=DB.users.filter(u=>u.role==="emp");
+      return `<div class="card"><h2>إضافة موظف</h2><div class="grid">
+        <label>الاسم<input id="en"></label><label>اسم المستخدم<input id="eu"></label><label>كلمة السر<input id="ep"></label>
+        <label>الراتب الأساسي<input id="es" type="number" min="0"></label><label>بداية الدوام<input id="et" type="time" value="09:00"></label>
+        <label>ساعات الدوام<input id="eh" type="number" min="1" value="8"></label>
+        <label>موقع العمل<select id="el">${DB.locations.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join("")}</select></label>
+        </div><button onclick="addEmp()">إضافة</button></div>
+        <div class="card"><h2>الموظفون (${emps.length})</h2><div class="tw"><table>
+        <tr><th>الاسم</th><th>المستخدم</th><th>الراتب</th><th>البداية</th><th>ساعات</th><th>الموقع</th><th></th></tr>
+        ${emps.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${u.salary}</td><td>${u.start}</td><td>${u.hours}</td>
+        <td><select onchange="setLoc('${u.id}',this.value)">${DB.locations.map(l=>`<option value="${l.id}" ${l.id===u.locId?"selected":""}>${esc(l.name)}</option>`).join("")}</select></td>
+        <td><button class="red" onclick="delEmp('${u.id}')">حذف</button></td></tr>`).join("")}</table></div></div>`;
+    }
+    function addEmp() {
+      const n=$("#en").value.trim(), us=$("#eu").value.trim(), p=$("#ep").value.trim();
+      if(!n||!us||!p) return alert("املأ الاسم واسم المستخدم وكلمة السر");
+      if(DB.users.some(x=>x.username===us)) return alert("اسم المستخدم موجود بالفعل");
+      DB.users.push({id:uid(),name:n,username:us,password:p,role:"emp",salary:+$("#es").value||0,start:$("#et").value||"09:00",hours:+$("#eh").value||8,locId:$("#el").value||""});
+      save();render();
+    }
+    function setLoc(id,l) { const u=DB.users.find(x=>x.id===id); if(u){u.locId=l;save();} }
+    function delEmp(id) {
+      if(!confirm("حذف الموظف وكل سجلاته؟")) return;
+      DB.users=DB.users.filter(u=>u.id!==id); DB.att=DB.att.filter(a=>a.uid!==id); DB.adj=DB.adj.filter(a=>a.uid!==id); save();render();
+    }
+
+    function locsTab() {
+      return `<div class="card"><h2>إضافة موقع عمل</h2>
+        <p class="note">اضغط على الخريطة لاختيار المكان، أو استخدم موقع جهازك الحالي. يلزم السماح للموقع في المتصفح.</p>
+        <div id="pmap" class="map"></div><div class="grid" style="margin-top:12px">
+        <label>اسم الموقع<input id="ln" placeholder="مثال: مقر الشركة"></label>
+        <label>خط العرض<input id="la" type="number" step="any"></label>
+        <label>خط الطول<input id="lo" type="number" step="any"></label>
+        <label>نصف القطر بالمتر<input id="lr" type="number" min="1" value="200" oninput="moveCircle()"></label>
+        </div><button class="sec" onclick="myLoc()">📍 استخدم موقعي الحالي</button> <button onclick="addLoc()">حفظ الموقع</button></div>
+        <div class="card"><h2>المواقع المسجلة</h2><div class="tw"><table><tr><th>الاسم</th><th>Lat</th><th>Lng</th><th>النطاق (م)</th><th></th></tr>
+        ${DB.locations.map(l=>`<tr><td>${esc(l.name)}</td><td>${l.lat}</td><td>${l.lng}</td>
+        <td><input type="number" style="width:90px" value="${l.radius}" onchange="setRad('${l.id}',this.value)"></td>
+        <td><button class="red" onclick="delLoc('${l.id}')">حذف</button></td></tr>`).join("")}</table></div></div>
+        <div class="card"><h2>الإعدادات</h2><div class="warn">يتم استخدام موقع الجهاز الحقيقي. لا توجد محاكاة للموقع في هذه النسخة.</div>
+        <label>معامل الإضافي<input type="number" step="0.1" value="${DB.settings.otMult}" onchange="DB.settings.otMult=+this.value||1;save()"></label></div>`;
+    }
+    function drawPickMap() {
+      const el=$("#pmap"); if(!el||!window.L) return;
+      const f=DB.locations[0], center=f?[f.lat,f.lng]:[30.0444,31.2357];
+      MAP=L.map("pmap").setView(center,f?13:6);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(MAP);
+      DB.locations.forEach(l=>L.circle([l.lat,l.lng],{radius:l.radius,color:"#d4af37",fillOpacity:.1}).addTo(MAP));
+      MAP.on("click",e=>setPick(e.latlng.lat,e.latlng.lng));
+    }
+    function setPick(a,o) {
+      $("#la").value=a.toFixed(6); $("#lo").value=o.toFixed(6);
+      if(PICK) MAP.removeLayer(PICK);
+      PICK=L.circle([a,o],{radius:+$("#lr").value||200,color:"#2ecc8f",fillColor:"#2ecc8f",fillOpacity:.2}).addTo(MAP);
+      MAP.setView([a,o],16);
+    }
+    function moveCircle() {
+      const a=parseFloat($("#la").value), o=parseFloat($("#lo").value);
+      if(!isNaN(a)&&!isNaN(o)&&MAP) setPick(a,o);
+    }
+    function myLoc() {
+      if(!navigator.geolocation) return alert("المتصفح لا يدعم تحديد الموقع");
+      navigator.geolocation.getCurrentPosition(
+        p=>setPick(p.coords.latitude,p.coords.longitude),
+        e=>alert(e.code===1?"تم رفض إذن الموقع. اسمح للموقع من إعدادات المتصفح.":"تعذّر تحديد الموقع. افتح الصفحة عبر HTTPS وفعّل GPS."),
+        {enableHighAccuracy:true,timeout:20000,maximumAge:0}
+      );
+    }
+    function addLoc() {
+      const n=$("#ln").value.trim(), a=parseFloat($("#la").value), o=parseFloat($("#lo").value), radius=+$("#lr").value||200;
+      if(!n||isNaN(a)||isNaN(o)) return alert("اكتب اسم الموقع وحدد مكانه على الخريطة");
+      if(a < -90 || a > 90 || o < -180 || o > 180) return alert("إحداثيات الموقع غير صحيحة");
+      DB.locations.push({id:uid(),name:n,lat:a,lng:o,radius}); save();render();
+    }
+    function setRad(id,v) { const l=DB.locations.find(x=>x.id===id); if(l){l.radius=Math.max(1,+v||100);save();} }
+    function delLoc(id) {
+      if(DB.locations.length<2) return alert("لازم يفضل موقع واحد على الأقل");
+      if(!confirm("حذف الموقع؟")) return;
+      DB.locations=DB.locations.filter(l=>l.id!==id);
+      DB.users.forEach(u=>{if(u.locId===id)u.locId=DB.locations[0].id});
+      save();render();
+    }
+
+    function attTab() {
+      const recs=DB.att.filter(a=>a.date.startsWith(MONTH)).sort((a,b)=>b.date.localeCompare(a.date));
+      const nm=id=>esc(DB.users.find(u=>u.id===id)?.name||"—");
+      return `<div class="card"><h2>إضافة أو تعديل يدوي</h2><div class="grid">
+        <label>الموظف<select id="mu">${DB.users.filter(u=>u.role==="emp").map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join("")}</select></label>
+        <label>التاريخ<input id="md" type="date" value="${dKey(new Date())}"></label>
+        <label>حضور<input id="mi" type="time" value="09:00"></label><label>انصراف<input id="mo" type="time" value="17:00"></label>
+        </div><button onclick="manualAtt()">حفظ</button></div>
+        <div class="card"><h2>سجل الحضور</h2>${monthPick()}<div class="tw"><table>
+        <tr><th>الموظف</th><th>التاريخ</th><th>حضور</th><th>انصراف</th><th></th></tr>
+        ${recs.map(r=>`<tr><td>${nm(r.uid)}</td><td>${r.date}</td><td>${fmtT(r.in)}</td><td>${fmtT(r.out)}</td><td><button class="red" onclick="delAtt('${r.id}')">حذف</button></td></tr>`).join("")||'<tr><td colspan="5">لا سجلات</td></tr>'}
+        </table></div></div>`;
+    }
+    function manualAtt() {
+      const u=$("#mu").value,d=$("#md").value,i=$("#mi").value,o=$("#mo").value;
+      if(!u||!d||!i) return alert("بيانات ناقصة");
+      DB.att=DB.att.filter(a=>!(a.uid===u&&a.date===d));
+      DB.att.push({id:uid(),uid:u,date:d,in:new Date(`${d}T${i}`).toISOString(),out:o?new Date(`${d}T${o}`).toISOString():null,manual:true});
+      save();render();
+    }
+    function delAtt(id) { DB.att=DB.att.filter(a=>a.id!==id);save();render(); }
+
+    function repTab() {
+      const rows=DB.users.filter(u=>u.role==="emp").map(u=>({u,c:calc(u,MONTH)}));
+      const tot=rows.reduce((s,r)=>s+r.c.net,0);
+      return `<div class="card"><h2>تقرير الرواتب</h2>${monthPick()}<div class="tw"><table>
+        <tr><th>الموظف</th><th>الأساسي</th><th>حضور</th><th>غياب</th><th>ساعات</th><th>عجز</th><th>إضافي</th><th>تأخير د</th><th>خصم عجز</th><th>خصم غياب</th><th>خصومات</th><th>إضافي+مكافآت</th><th>الصافي</th></tr>
+        ${rows.map(({u,c})=>`<tr><td>${esc(u.name)}</td><td>${u.salary}</td><td>${c.present}</td><td>${c.absent}</td><td>${r2(c.worked)}</td>
+        <td class="neg">${r2(c.shortage)}</td><td class="pos">${r2(c.ot)}</td><td>${c.late}</td><td class="neg">${r2(c.shortDed)}</td>
+        <td class="neg">${r2(c.absDed)}</td><td class="neg">${r2(c.manDed)}</td><td class="pos">${r2(c.otPay+c.bonus)}</td>
+        <td style="color:var(--gold2)"><b>${r2(c.net)}</b></td></tr>`).join("")}</table></div>
+        <p style="color:var(--gold2)"><b>إجمالي صافي الرواتب: ${money(tot)}</b></p>
+        <p class="note">أجر اليوم = الراتب ÷ أيام العمل. العجز بأجر الساعة، والغياب بأجر يوم، والإضافي × ${DB.settings.otMult}.</p>
+        <button class="sec" onclick="exportCSV()">⬇️ تصدير CSV</button></div>`;
+    }
+    function exportCSV() {
+      const h=["الموظف","الأساسي","حضور","غياب","ساعات","عجز","إضافي","تأخير","خصم عجز","خصم غياب","خصومات","إضافي+مكافآت","الصافي"];
+      const lines=[h.join(",")];
+      DB.users.filter(u=>u.role==="emp").forEach(u=>{
+        const c=calc(u,MONTH);
+        lines.push([u.name,u.salary,c.present,c.absent,r2(c.worked),r2(c.shortage),r2(c.ot),c.late,r2(c.shortDed),r2(c.absDed),r2(c.manDed),r2(c.otPay+c.bonus),r2(c.net)].map(x=>`"${String(x).replaceAll('"','""')}"`).join(","));
+      });
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"}));
+      a.download=`salaries-${MONTH}.csv`; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    function adjTab() {
+      const list=DB.adj.filter(a=>a.month===MONTH), nm=id=>esc(DB.users.find(u=>u.id===id)?.name||"—");
+      return `<div class="card"><h2>إضافة خصم أو مكافأة</h2><div class="grid">
+        <label>الموظف<select id="ju">${DB.users.filter(u=>u.role==="emp").map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join("")}</select></label>
+        <label>النوع<select id="jt"><option value="ded">خصم</option><option value="bonus">مكافأة</option></select></label>
+        <label>المبلغ<input id="ja" type="number" min="0"></label><label>السبب<input id="jn"></label>
+        </div><button onclick="addAdj()">إضافة للشهر ${MONTH}</button></div>
+        <div class="card"><h2>السجل</h2>${monthPick()}<div class="tw"><table>
+        <tr><th>الموظف</th><th>النوع</th><th>المبلغ</th><th>السبب</th><th></th></tr>
+        ${list.map(a=>`<tr><td>${nm(a.uid)}</td><td class="${a.type==="ded"?"neg":"pos"}">${a.type==="ded"?"خصم":"مكافأة"}</td>
+        <td>${a.amount}</td><td>${esc(a.note)}</td><td><button class="red" onclick="delAdj('${a.id}')">حذف</button></td></tr>`).join("")||'<tr><td colspan="5">لا يوجد</td></tr>'}
+        </table></div></div>`;
+    }
+    function addAdj() {
+      const amount=+$("#ja").value;
+      if(!amount||amount<=0) return alert("اكتب مبلغًا صحيحًا");
+      DB.adj.push({id:uid(),uid:$("#ju").value,month:MONTH,type:$("#jt").value,amount,note:$("#jn").value});
+      save();render();
+    }
+    function delAdj(id) { DB.adj=DB.adj.filter(a=>a.id!==id);save();render(); }
+
+    render();
+  </script>
+</body>
+</html>
